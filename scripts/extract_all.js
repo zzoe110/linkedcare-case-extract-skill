@@ -1,8 +1,18 @@
+// LinkedCare 全量提取（去重模式 A）
+// 只抓 5 字段，后续由 dedupe.js 按 patientId 去重。
+//
+// ⚠️ 字段映射（已按用户纠正，2026-07-31）：
+//   病例ID = patientId（≠ privateId）
+//   电话   = mobile / 姓名 = patientName
+//   患者网电咨询师 = onlineConsultantName / 专属客服 = attendantName
+//
+// 🚨 铁律：只改 pageSize / pageIndex 做翻页，绝不修改 body.criteria 筛选条件。
 (()=>{
   const fr = Array.from(document.querySelectorAll('iframe')).find(f=>(f.src||'').includes('reportCenter.dealDetail'));
   const w = fr.contentWindow;
-  const r = w.__capturedReqs && w.__capturedReqs[0];
-  if(!r) return 'ERROR: no captured request — run install_hook.js then click_query.js first';
+  const reqs = w.__capturedReqs;
+  if(!reqs || !reqs.length) return 'ERROR: no captured request — run install_hook.js then click_query.js first';
+  const r = reqs[reqs.length-1];
 
   w.__extract = {status:'running', page:0, fetched:0, rows:[], error:null};
   const body = JSON.parse(r.body);
@@ -22,7 +32,7 @@
           w.__extract.rows.push({
             name:      it.patientName,
             mobile:    it.mobile,
-            privateId: it.privateId,
+            patientId: it.patientId,        // ← 病例ID（修正：patientId，≠ privateId）
             online:    it.onlineConsultantName,
             attendant: it.attendantName
           });
