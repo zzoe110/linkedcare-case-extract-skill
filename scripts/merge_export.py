@@ -33,7 +33,7 @@ def main():
     rows = load_chunks()
     seen, out = set(), []
     for r in rows:
-        pid = (r.get("privateId") or "").strip()
+        pid = (r.get("patientId") or "").strip()   # 病例ID = patientId（≠ privateId）
         if not pid or pid in seen:
             continue
         seen.add(pid)
