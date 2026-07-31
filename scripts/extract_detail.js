@@ -1,9 +1,9 @@
-// LinkedCare 交易级明细提取（电商模板模式）
-// 模式 B：不去重，每笔收费一行，仅保留网电咨询师非空的行
+// LinkedCare 交易级明细提取（电商模板）
+// 不去重，每笔收费一行，仅保留网电咨询师非空的行
 //
 // ⚠️ 字段映射（已按用户纠正，2026-07-31）：
 //   病例id  → patientId   （注意：patientId 才是病例ID，≠ privateId）
-//   【模式B 现仅输出「病例id」，不再输出「病历号」(privateId) —— 用户要求清洗后表头只保留病例ID】
+//   【清洗后表头只保留「病例id」(patientId)，不再输出「病历号」(privateId)】
 //   其余：患者网电咨询师=onlineConsultantName / 患者姓名=patientName
 //        收费时间=payDateTime / 现金类实收=paymentType1Subtotal / 收费机构=orderOfficeName
 //
