@@ -29,8 +29,9 @@ HEADERS = [
 ]
 
 # JS 提取对象 → CSV 列 的字段映射顺序
+# ⚠️ 病例id = patientId（≠ privateId）；病历号 = privateId
 KEYS = [
-    "onlineConsultantName", "patientName", "privateId", "medicalRecordNo",
+    "onlineConsultantName", "patientName", "patientId", "privateId",
     "payDateTime", "cashActualReceived", "chargeOrg"
 ]
 
