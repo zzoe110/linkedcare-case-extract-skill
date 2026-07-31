@@ -3,7 +3,7 @@
 //
 // ⚠️ 字段映射（已按用户纠正，2026-07-31）：
 //   病例id  → patientId   （注意：patientId 才是病例ID，≠ privateId）
-//   病历号  → privateId   （病历号 = privateId，是另一个编号）
+//   【模式B 现仅输出「病例id」，不再输出「病历号」(privateId) —— 用户要求清洗后表头只保留病例ID】
 //   其余：患者网电咨询师=onlineConsultantName / 患者姓名=patientName
 //        收费时间=payDateTime / 现金类实收=paymentType1Subtotal / 收费机构=orderOfficeName
 //
@@ -42,8 +42,7 @@ async function run(){
         w.__extract2.rows.push({
           onlineConsultantName: oc,
           patientName: it.patientName||'',
-          patientId: it.patientId||'',        // ← 病例ID（修正：patientId）
-          privateId: it.privateId||'',         // ← 病历号
+          patientId: it.patientId||'',        // ← 病例ID（修正：patientId，唯一标识）
           payDateTime: it.payDateTime||'',
           cashActualReceived: it.paymentType1Subtotal!==undefined ? it.paymentType1Subtotal : '',
           chargeOrg: it.orderOfficeName||''
