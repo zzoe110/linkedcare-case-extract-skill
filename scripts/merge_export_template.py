@@ -22,21 +22,21 @@ os.makedirs(OUTDIR, exist_ok=True)
 TS = datetime.now().strftime("%Y%m%d_%H%M")
 BASENAME = f"电商项目明细_网电咨询师非空_{TS}"
 
-# 模板表头（与 电商项目明细导出模板.xlsx 一致）
+# 模板表头（与 电商项目明细导出模板.xlsx 一致；【模式B 现仅输出病例ID，不含病历号】）
 HEADERS = [
-    "患者网电咨询师", "患者姓名", "病例id", "病历号",
+    "患者网电咨询师", "患者姓名", "病例id",
     "收费时间", "现金类实收", "收费机构"
 ]
 
 # JS 提取对象 → CSV 列 的字段映射顺序
-# ⚠️ 病例id = patientId（≠ privateId）；病历号 = privateId
+# ⚠️ 病例id = patientId（≠ privateId）。【模式B 现仅输出病例ID，不再输出病历号(privateId)】
 KEYS = [
-    "onlineConsultantName", "patientName", "patientId", "privateId",
+    "onlineConsultantName", "patientName", "patientId",
     "payDateTime", "cashActualReceived", "chargeOrg"
 ]
 
 # 列宽（字符）
-COL_WIDTHS = [16, 12, 18, 18, 20, 14, 30]
+COL_WIDTHS = [16, 12, 18, 20, 14, 30]
 
 
 def load_chunks(chunk_dir="/tmp", pattern="lc_chunk_*.json"):
