@@ -1,18 +1,27 @@
 // LinkedCare 交易级明细提取（电商模板模式）
 // 模式 B：不去重，每笔收费一行，仅保留网电咨询师非空的行
-// 输出字段：onlineConsultantName / patientName / privateId / medicalRecordNo / payDateTime / cashActualReceived / chargeOrg
-// 结果存入 w.__extract2，用 __extract2.rows 读取
+//
+// ⚠️ 字段映射（已按用户纠正，2026-07-31）：
+//   病例id  → patientId   （注意：patientId 才是病例ID，≠ privateId）
+//   病历号  → privateId   （病历号 = privateId，是另一个编号）
+//   其余：患者网电咨询师=onlineConsultantName / 患者姓名=patientName
+//        收费时间=payDateTime / 现金类实收=paymentType1Subtotal / 收费机构=orderOfficeName
+//
+// 结果存入 w.__extract2.rows
+//
+// 🚨 铁律：只改 pageSize / pageIndex 做翻页，绝不修改 body.criteria 里的
+//    日期范围 / 诊所 / 诊断 等筛选条件（那是用页面上用户自己设好的）。
 (()=>{
 const fr = Array.from(document.querySelectorAll('iframe')).find(f=>(f.src||'').includes('reportCenter.dealDetail'));
 if(!fr) return 'ERROR: iframe not found';
 const w = fr.contentWindow;
 const reqs = w.__capturedReqs;
 if(!reqs || !reqs.length) return 'ERROR: no captured request. Run install_hook.js + click_query.js first.';
-const r = reqs[0];
+const r = reqs[reqs.length-1];   // 取最后一次查询（= 用户设好的条件）
 
 w.__extract2 = {status:'running', page:0, fetched:0, kept:0, rows:[], error:null};
 const body = JSON.parse(r.body);
-body.criteria.pageSize = 100;
+body.criteria.pageSize = 100;   // 仅改分页大小，不动筛选条件
 
 async function run(){
   try{
@@ -33,8 +42,8 @@ async function run(){
         w.__extract2.rows.push({
           onlineConsultantName: oc,
           patientName: it.patientName||'',
-          privateId: it.privateId||'',
-          medicalRecordNo: it.privateId||'', // API无独立病历号字段，与病例ID同值
+          patientId: it.patientId||'',        // ← 病例ID（修正：patientId）
+          privateId: it.privateId||'',         // ← 病历号
           payDateTime: it.payDateTime||'',
           cashActualReceived: it.paymentType1Subtotal!==undefined ? it.paymentType1Subtotal : '',
           chargeOrg: it.orderOfficeName||''
@@ -52,5 +61,5 @@ async function run(){
   }
 }
 run();
-return 'detail extraction started (mode B, filter onlineConsultantName non-empty)';
+return 'detail extraction started (mode B, 病例ID=patientId, filter onlineConsultantName non-empty)';
 })()
