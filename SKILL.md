@@ -9,6 +9,17 @@ agent_created: true
 绕过页面翻页，直接复用系统自身的报表接口批量拉全量数据。
 **比手动 F12 → Network → 复制 Response 快 100 倍，且一次拿全，不用管分页。**
 
+## 🚨 铁律：绝不擅自修改查询条件
+
+**每一次执行都必须遵守：**
+
+1. 打开报表页后，**不管当前页面有没有数据**，都先 `request-help` 暂停，**等用户自己设置好当次筛选条件（时间范围 / 诊所 / 诊断等）并点击【继续】**。
+2. 用户点继续后才开始提取。**提取时只读取用户在页面上设好的条件，绝不可用代码修改 `body.criteria` 里的日期范围、诊所、诊断等任何筛选参数。**
+3. 如果用户的条件只返回少量数据（甚至 0 条保留行），那是用户的选择，**照常输出，不得自作主张放大范围**。
+4. 翻页时只允许改 `pageSize` / `pageIndex`，这两个是分页参数，不是查询条件。
+
+> ⚠️ 历史上曾犯过错：用户页面是单日条件、只返 6 条，agent 擅自把日期改成整月重跑。这是**严禁行为**。
+
 ## 核心原理
 
 报表页面结构：主页面 → iframe(`app-new/#/entry/reportCenter.dealDetail`) → 内部走 XHR 请求。
@@ -28,13 +39,13 @@ POST https://volc-api-hn02.linkedcare.cn:9001/api/v1/complex-report/new/search?r
 
 ### 模式 A：去重模式（默认）
 
-按 `privateId`（病例ID）去重，每人一行。
+按 `patientId`（病例ID）去重，每人一行。
 
 | 输出列 | API 字段 |
 |---|---|
 | 姓名 | `patientName` |
 | 电话 | `mobile` |
-| 病例ID | `privateId` |
+| 病例ID | `patientId` |
 | 患者网电咨询师 | `onlineConsultantName` |
 | 专属客服 | `attendantName`（⚠️ 填充率极低 <0.1%） |
 
@@ -48,8 +59,8 @@ POST https://volc-api-hn02.linkedcare.cn:9001/api/v1/complex-report/new/search?r
 |---|---|---|
 | 患者网电咨询师 | `onlineConsultantName` | 过滤条件：非空才保留 |
 | 患者姓名 | `patientName` | |
-| 病例id | `privateId` | |
-| 病历号 | `privateId`（同上） | ⚠️ API 无独立病历号字段，与病例ID同值 |
+| 病例id | `patientId` | ⚠️ 病例ID = `patientId`（数字，≠ `privateId`） |
+| 病历号 | `privateId` | 病历号 = `privateId`（字符串，≠ 病例ID） |
 | 收费时间 | `payDateTime` | 格式：ISO 8601 |
 | 现金类实收 | `paymentType1Subtotal` | paymentType1 = 现金类 |
 | 收费机构 | `orderOfficeName` | |
@@ -67,7 +78,8 @@ API 单条 item 包含约 120 个字段，常用映射：
 
 | 业务含义 | API 字段 | 备注 |
 |---|---|---|
-| 病例ID / 病历号 | `privateId` | 页面表格第一列"病历号"的底层字段 |
+| 病例ID | `patientId` | 数字ID，系统唯一病例标识（**≠ `privateId`**） |
+| 病历号 | `privateId` | 字符串编号，页面表格第一列"病历号"的底层字段 |
 | 患者姓名 | `patientName` | |
 | 电话 | `mobile` | |
 | 性别 | `sexStr` | |
@@ -109,17 +121,15 @@ bsk wait-ms 5s
 
 ⚠️ **不要用 `bsk tab borrow`** —— 用户经常会取消授权弹窗。直接 `tab create` 在 Agent 窗口打开，登录态（cookie）是共享的。
 
-### 步骤 2：确认页面有数据，无数据则暂停等人工
+### 步骤 2：暂停，等用户设好当次条件（无论页面当前有无数据）
 
-```bash
-bsk evaluate --session <id> "$(cat scripts/check_data.js)"
-```
-返回 `hasNoData: true` 或 `hasTotal: false` → 说明还没查询。此时必须暂停：
+🚨 **关键：不先检查数据，直接暂停等用户。** 即使页面已经有数据，也要等用户确认/重设当次条件。
+用户每次的查询范围都不同，agent 不得假设、不得沿用、更不得修改上次的筛选条件。
 
 ```bash
 bsk request-help --session <id> \
-  --prompt "请设置好筛选条件（时间范围、诊所、诊断项目）并点击【查询】，出数据后点继续" \
-  --title "请设置查询条件" --timeout 15m
+  --prompt "请在页面上设置本次的筛选条件（时间范围、诊所、诊断项目），设置好后点击【查询】，然后点本提示的【继续】，我将按你的条件直接提取清洗，不会改动任何筛选参数。" \
+  --title "请设置本次查询条件" --timeout 15m
 ```
 用后台方式跑（`run_in_background: true`），再用 TaskOutput 等结果。`outcome=continued` 才往下走。
 
@@ -132,6 +142,7 @@ bsk wait-ms 3s
 ```
 
 这一步的意义：**不用手写筛选参数**，直接复用用户在页面上设好的条件（含 Authorization token、诊所ID、日期范围）。
+🚨 **严禁修改 `body.criteria` 里的任何筛选参数**（日期/诊所/诊断）。`click_query.js` 只是点页面上的【查询】按钮，触发的是用户已设好的条件；后续翻页只动 `pageSize`/`pageIndex`。
 
 ### 步骤 4：全量翻页提取（选模式）
 
@@ -140,7 +151,7 @@ bsk wait-ms 3s
 ```bash
 bsk evaluate --session <id> "$(cat scripts/extract_all.js)"
 ```
-捕获 5 字段：name/mobile/privateId/online/attendant。后续步骤 5 去重。
+捕获 5 字段：name/mobile/patientId/online/attendant。后续步骤 5 按 patientId 去重。
 
 #### 模式 B（明细）：scripts/extract_detail.js
 
@@ -166,9 +177,11 @@ bsk evaluate --session <id> "(()=>{const w=Array.from(document.querySelectorAll(
 #### 模式 A：去重 → 分批导出 → 合并
 
 ```bash
-# 去重（按 privateId，保留首次出现）
+# 去重（按 patientId 病例ID 去重，保留首次出现；privateId 是病历号≠病例ID）
 bsk evaluate --session <id> "$(cat scripts/dedupe.js)"
 
+# ⚠️ 先清空旧分块，避免混入历史数据（曾因此把 1.8万去重数据误并入本次结果）
+rm -f /tmp/lc_chunk_*.json
 # 分批导出（单次 evaluate 返回值有大小限制，必须切块，1000 条/批）
 for i in $(seq 0 N); do
   start=$((i*1000))
@@ -182,6 +195,8 @@ done
 #### 模式 B：明细 → 直接分批导出 → 合并
 
 ```bash
+# ⚠️ 先清空旧分块，避免混入历史数据
+rm -f /tmp/lc_chunk_*.json
 # 分批导出 __extract2.rows（已过滤，无需去重）
 for i in $(seq 0 N); do
   start=$((i*1000))
@@ -209,7 +224,7 @@ bsk session stop <id>
 5. **`tab borrow` 被取消** —— 用户点了拒绝。直接 `tab create` 即可，不影响登录态。
 6. **多浏览器实例** —— `bsk session start` 会报错要求指定 `--browser`。先跑 `bsk browsers` 看列表。
 7. **`totalCount` 恒为 0** —— 不要拿它算总页数，用 `items.length < pageSize` 判终止。
-8. **「病历号」≠ 独立字段** —— 页面表格显示"病历号"，但 API 底层就是 `privateId`（病例ID）。系统无独立病历号字段。若业务上两者不同，需从其他数据源补充。
+8. **`patientId` ≠ `privateId`** —— **病例ID = `patientId`（数字）**，**病历号 = `privateId`（字符串）**，两者完全不同。曾误把 `privateId` 当病例ID，已纠正；去重键、模板"病例id"列都必须用 `patientId`。
 
 ## 数据质量提示
 
