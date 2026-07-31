@@ -1,6 +1,6 @@
 ---
 name: linkedcare-case-extract
-description: 从京州口腔 LinkedCare 门诊管理系统（jingzhou.linkedcare.cn）交易明细报表中批量提取患者数据。支持两种输出模式：①去重模式（按病例ID去重，输出5列患者名单）②明细模式（交易级逐笔记录，按电商模板7列输出，筛掉网电咨询师为空行）。当用户提到「病例ID提取」「LinkedCare 导数据」「交易明细报表提取」「拉患者名单去重」「电商项目明细导出」时使用。
+description: 从京州口腔 LinkedCare 门诊管理系统（jingzhou.linkedcare.cn）交易明细报表中批量提取患者数据。支持两种输出模式：①去重模式（按病例ID去重，输出5列患者名单）②明细模式（交易级逐笔记录，按电商模板6列输出，筛掉网电咨询师为空行）。当用户提到「病例ID提取」「LinkedCare 导数据」「交易明细报表提取」「拉患者名单去重」「电商项目明细导出」时使用。
 agent_created: true
 ---
 
@@ -60,7 +60,6 @@ POST https://volc-api-hn02.linkedcare.cn:9001/api/v1/complex-report/new/search?r
 | 患者网电咨询师 | `onlineConsultantName` | 过滤条件：非空才保留 |
 | 患者姓名 | `patientName` | |
 | 病例id | `patientId` | ⚠️ 病例ID = `patientId`（数字，≠ `privateId`） |
-| 病历号 | `privateId` | 病历号 = `privateId`（字符串，≠ 病例ID） |
 | 收费时间 | `payDateTime` | 格式：ISO 8601 |
 | 现金类实收 | `paymentType1Subtotal` | paymentType1 = 现金类 |
 | 收费机构 | `orderOfficeName` | |
@@ -79,7 +78,7 @@ API 单条 item 包含约 120 个字段，常用映射：
 | 业务含义 | API 字段 | 备注 |
 |---|---|---|
 | 病例ID | `patientId` | 数字ID，系统唯一病例标识（**≠ `privateId`**） |
-| 病历号 | `privateId` | 字符串编号，页面表格第一列"病历号"的底层字段 |
+| 病历号 | `privateId` | 字符串编号，页面表格"病历号"的底层字段（模式B 现不输出此列） |
 | 患者姓名 | `patientName` | |
 | 电话 | `mobile` | |
 | 性别 | `sexStr` | |
