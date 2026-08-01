@@ -8,7 +8,7 @@
 
 > 📌 **字段映射提醒**：
 > - 「病例id」对应系统 `patientId`（数字，系统唯一病例标识），**注意 ≠ 病历号 `privateId`**（字符串编号）。两者完全不同，曾误用已纠正。本 skill 只输出「病例id」，绝不输出「病历号」。
-> - 「现金类实收」对应系统 `totalActualPrice`（实测验证=网页"现金类实收"列，2026-08-01）。**历史误用链**：`paymentType1Subtotal`(大量0) → `incomePrice`(分期记录为0) → `totalActualPrice`(✓)。兜底 `actualPrice`。
+> - 「现金类实收」对应系统 `actualPrice`（= 网页"现金类实收"列 = 折后实收，2026-08-01 实测验证：读取 ag-Grid 实际渲染列，有折扣记录网页值=actualPrice≠totalActualPrice）。**历史误用链**：`paymentType1Subtotal`(大量0) → `incomePrice`(分期记录为0) → `totalActualPrice`(无折扣时相等、有折扣时偏高) → `actualPrice`(✓最终)。兜底 `totalActualPrice`。
 
 原理：复用系统自带报表接口直接翻页拉全量，比手动 F12 复制快 100 倍，且一次拿全、不用管分页。
 
