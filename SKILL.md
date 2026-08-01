@@ -82,6 +82,29 @@ bsk wait-ms 5s
 
 ⚠️ **不要用 `bsk tab borrow`** —— 用户经常会取消授权弹窗。直接 `tab create` 在 Agent 窗口打开，登录态（cookie）是共享的。
 
+### 步骤 1.5：登录态快速判断（未登录立即终止并等待登录）🚨
+
+打开页面后**先不要进入步骤 2 等条件**，先用脚本快速判断当前是否已登录并真正进入报表页：
+
+```bash
+bsk evaluate --session <id> "$(cat scripts/check_login.js)"
+```
+
+解析返回的 JSON：
+
+- **`loggedIn: true`** → 已进入报表页，直接往下走步骤 2（等用户设条件）。
+- **`loggedIn: false`** → **立刻终止后续所有步骤**，不要傻等用户设条件、也不要空跑提取。改用 `request-help` 等待登录：
+
+```bash
+bsk request-help --session <id> \
+  --prompt "检测到当前未登录（${reason}），页面停留在登录页或未进入报表页。请先在浏览器完成 jingzhou.linkedcare.cn 登录，等到看到报表页面后，再点击本提示的【继续】。" \
+  --title "请先登录 LinkedCare" --timeout 15m
+```
+
+用户点【继续】后，**重新执行本步骤（再跑一次 `check_login.js`）**，直到返回 `loggedIn: true` 才进入步骤 2。这样未登录时绝不会浪费用户在页面上设条件，也不会在没登录的情况下空跑提取。
+
+> 判定依据：`reportCenter.dealDetail` 报表在 iframe 内。脚本检测该 iframe 是否存在且内部已渲染报表 UI（含"查询/总计/重置"字样且无登录关键字）；否则在主文档层检测 password 输入框、登录关键字、login 路由。跨域无法读 iframe 内部时给一次机会、提示人工核实。
+
 ### 步骤 2：暂停，等用户设好当次条件（无论页面当前有无数据）
 
 🚨 **关键：不先检查数据，直接暂停等用户。** 即使页面已经有数据，也要等用户确认/重设当次条件。
@@ -107,6 +130,8 @@ bsk wait-ms 3s
 🚨 **严禁修改 `body.criteria` 里的任何筛选参数**（日期/诊所/诊断）。`click_query.js` 只是点页面上的【查询】按钮，触发的是用户已设好的条件；后续翻页只动 `pageSize`/`pageIndex`。
 
 ### 步骤 4：全量翻页提取（明细模式）
+
+> 🛡️ **起飞前复检（可选但推荐）**：若步骤 2 等待期间间隔较久、或曾离开页面，提取前可再跑一次 `check_login.js` 确认 `loggedIn: true`，避免 session 过期后 fetch 返回 401 空跑。未登录则按步骤 1.5 的等待逻辑处理。
 
 ```bash
 bsk evaluate --session <id> "$(cat scripts/extract_detail.js)"
@@ -158,6 +183,7 @@ bsk session stop <id>
 6. **多浏览器实例** —— `bsk session start` 会报错要求指定 `--browser`。先跑 `bsk browsers` 看列表。
 7. **`totalCount` 恒为 0** —— 不要拿它算总页数，用 `items.length < pageSize` 判终止。
 8. **`patientId` ≠ `privateId`** —— **病例ID = `patientId`（数字）**，**病历号 = `privateId`（字符串）**，两者完全不同。曾误把 `privateId` 当病例ID，已纠正；模板"病例id"列必须用 `patientId`。
+9. **未登录就跑 = 白忙** —— 打开报表页后先用 `check_login.js` 快速判断登录态。未登录（停在登录页 / 目标 iframe 缺失）必须**立即终止**并 `request-help` 等用户登录，绝不能继续等设条件或空跑提取。判定核心：目标报表在 `reportCenter.dealDetail` iframe 内，检查该 iframe 是否真实渲染了报表 UI。
 
 ## 数据质量提示
 
