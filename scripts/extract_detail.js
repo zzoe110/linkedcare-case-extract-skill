@@ -4,11 +4,14 @@
 // ⚠️ 字段映射（已按用户纠正+实测验证，2026-07-31 / 最终修正于 2026-08-01）：
 //   病例id  → patientId   （注意：patientId 才是病例ID，≠ privateId）
 //   【清洗后表头只保留「病例id」(patientId)，不再输出「病历号」(privateId)】
-//   现金类实收 → totalActualPrice（优先）；兜底 actualPrice
-//     ⚠️ 实测验证（2026-08-01）：网页"现金类实收"列 = totalActualPrice（≠ incomePrice）
-//     - incomePrice 对 isDeduction=是(分期)的记录返回0，与网页不符
-//     - totalActualPrice / actualPrice 在所有记录上均与网页一致
-//     - 历史误用顺序：paymentType1Subtotal(大量0) → incomePrice(分期0) → totalActualPrice(✓)
+//   现金类实收 → actualPrice（优先，= 网页"现金类实收"列=折后实收）；
+//                 兜底 totalActualPrice（=应收/折前，无折扣时与 actualPrice 相等）
+//     ⚠️ 实测验证（2026-08-01，读取 ag-Grid 实际渲染列）：网页"现金类实收" = actualPrice
+//     - 有折扣的记录：actualPrice = totalActualPrice - payDiscount，网页显示 actualPrice
+//       （例：3800→2666 记录，网页=2218.82=actualPrice，totalActualPrice=2666 偏高一截折扣）
+//     - 无折扣记录：actualPrice == totalActualPrice，二者一致
+//     - incomePrice 对 isDeduction=是(分期)记录返回0，错误
+//     - 历史误用顺序：paymentType1Subtotal(大量0) → incomePrice(分期0) → totalActualPrice(折扣时偏高) → actualPrice(✓最终)
 //   其余：患者网电咨询师=onlineConsultantName / 患者姓名=patientName
 //        收费时间=payDateTime / 收费机构=orderOfficeName
 //
@@ -49,9 +52,9 @@ async function run(){
           patientName: it.patientName||'',
           patientId: it.patientId||'',        // ← 病例ID（修正：patientId，唯一标识）
           payDateTime: it.payDateTime||'',
-          // 现金类实收：优先 totalActualPrice（网页"现金类实收"列，实测验证2026-08-01），兜底 actualPrice
-          cashActualReceived: (it.totalActualPrice!==undefined && it.totalActualPrice!=='') ? it.totalActualPrice
-            : (it.actualPrice!==undefined && it.actualPrice!=='') ? it.actualPrice
+          // 现金类实收：优先 actualPrice（=网页"现金类实收"列=折后实收），兜底 totalActualPrice
+          cashActualReceived: (it.actualPrice!==undefined && it.actualPrice!=='') ? it.actualPrice
+            : (it.totalActualPrice!==undefined && it.totalActualPrice!=='') ? it.totalActualPrice
             : '',
           chargeOrg: it.orderOfficeName||''
         });
