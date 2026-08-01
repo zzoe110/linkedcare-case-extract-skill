@@ -1,11 +1,16 @@
 // LinkedCare 交易级明细提取（电商模板）
 // 不去重，每笔收费一行，仅保留网电咨询师非空的行
 //
-// ⚠️ 字段映射（已按用户纠正，2026-07-31）：
+// ⚠️ 字段映射（已按用户纠正+实测验证，2026-07-31 / 最终修正于 2026-08-01）：
 //   病例id  → patientId   （注意：patientId 才是病例ID，≠ privateId）
 //   【清洗后表头只保留「病例id」(patientId)，不再输出「病历号」(privateId)】
+//   现金类实收 → totalActualPrice（优先）；兜底 actualPrice
+//     ⚠️ 实测验证（2026-08-01）：网页"现金类实收"列 = totalActualPrice（≠ incomePrice）
+//     - incomePrice 对 isDeduction=是(分期)的记录返回0，与网页不符
+//     - totalActualPrice / actualPrice 在所有记录上均与网页一致
+//     - 历史误用顺序：paymentType1Subtotal(大量0) → incomePrice(分期0) → totalActualPrice(✓)
 //   其余：患者网电咨询师=onlineConsultantName / 患者姓名=patientName
-//        收费时间=payDateTime / 现金类实收=paymentType1Subtotal / 收费机构=orderOfficeName
+//        收费时间=payDateTime / 收费机构=orderOfficeName
 //
 // 结果存入 w.__extract2.rows
 //
@@ -44,7 +49,10 @@ async function run(){
           patientName: it.patientName||'',
           patientId: it.patientId||'',        // ← 病例ID（修正：patientId，唯一标识）
           payDateTime: it.payDateTime||'',
-          cashActualReceived: it.paymentType1Subtotal!==undefined ? it.paymentType1Subtotal : '',
+          // 现金类实收：优先 totalActualPrice（网页"现金类实收"列，实测验证2026-08-01），兜底 actualPrice
+          cashActualReceived: (it.totalActualPrice!==undefined && it.totalActualPrice!=='') ? it.totalActualPrice
+            : (it.actualPrice!==undefined && it.actualPrice!=='') ? it.actualPrice
+            : '',
           chargeOrg: it.orderOfficeName||''
         });
       });
