@@ -45,7 +45,7 @@ POST https://volc-api-hn02.linkedcare.cn:9001/api/v1/complex-report/new/search?r
 | 患者姓名 | `patientName` | |
 | 病例id | `patientId` | ⚠️ 病例ID = `patientId`（数字，≠ `privateId`） |
 | 收费时间 | `payDateTime` | 格式：ISO 8601 |
-| 现金类实收 | `totalActualPrice` | ⚠️ 优先取 `totalActualPrice`（网页"现金类实收"列，实测验证2026-08-01）；兜底 `actualPrice`。**≠ incomePrice**（分期记录返回0） |
+| 现金类实收 | `actualPrice` | ⚠️ 优先取 `actualPrice`（= 网页"现金类实收"列 = 折后实收，实测验证2026-08-01，读取 ag-Grid 实际渲染列）；兜底 `totalActualPrice`（=应收/折前）。**≠ incomePrice**（分期记录返回0） |
 | 收费机构 | `orderOfficeName` | |
 
 输出文件：`电商项目明细_网电咨询师非空_YYYYMMDD_HHMM.{csv,xlsx}`
@@ -64,8 +64,8 @@ API 单条 item 包含约 120 个字段，常用映射：
 | 项目名称 | `itemName` | |
 | 就诊/收费机构 | `orderOfficeName` / `payOfficeName` | |
 | 网电咨询师 | `onlineConsultantName` | 过滤条件：非空才保留 |
-| 现金类实收 | `totalActualPrice` | 优先 `totalActualPrice`（实测验证=网页列），兜底 `actualPrice`。**≠ incomePrice**（分期记录为0） |
-| 总实收 | `totalActualPrice` | |
+| 现金类实收 | `actualPrice` | 优先 `actualPrice`（= 网页"现金类实收"列 = 折后实收，实测验证）；兜底 `totalActualPrice`（=应收/折前，无折扣时二者相等）。**≠ incomePrice**（分期记录为0） |
+| 总实收/应收 | `totalActualPrice` | 折前应收总额（含折扣前），与网页"现金类实收"不同 |
 
 > 📌 **病例ID ≠ 病历号**：系统里 `patientId`（数字，系统唯一病例标识）才是「病例ID」；`privateId`（字符串编号）是「病历号」，二者完全不同。本 skill 输出列只用 `patientId`，绝不用 `privateId`。曾误把 `privateId` 当病例ID，已纠正。
 
